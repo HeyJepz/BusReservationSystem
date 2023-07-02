@@ -15,6 +15,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.NumberFormat;
 
@@ -128,9 +129,22 @@ public class BusReservation {
 		lblNewLabel_1_2_1_1_1.setBounds(208, 157, 41, 20);
 		Destination.add(lblNewLabel_1_2_1_1_1);
 		
-		// TODO: make the models dynamically set according to the database
+		// TODO: make the models dynamically set according to the database (DONE)
 		JComboBox City = new JComboBox();
-		City.setModel(new DefaultComboBoxModel(new String[] {"Davao City", "Butuan City", "Baguio City", "Cagayan City", "Valenzuela City", "Cavite City"}));
+		try {
+			Class.forName("com.mysql.cj.jdbc.Driver");
+			Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/busreservation","root","");	
+			Statement st = con.createStatement();		
+			String query = "SELECT City FROM destination";
+			ResultSet rs = st.executeQuery(query);		
+			
+			while(rs.next()) {
+				String desCity = rs.getString(1);
+				City.addItem(desCity);
+			}
+		}catch(Exception e1){
+			JOptionPane.showMessageDialog(null, e1);
+		}
 		City.setBounds(86, 106, 139, 22);
 		Destination.add(City);
 		
@@ -207,19 +221,24 @@ public class BusReservation {
 			// DONE!
 			// TODO set text of seats according to destination table seats 
 			// TODO set the items of the comboBox according to the destination database 
+				
 				try {
+					// SQL Statements and SQL query for CITY 
 					Class.forName("com.mysql.cj.jdbc.Driver");
 					Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/busreservation","root","");	
 					Statement st = con.createStatement();		
 					String desQuery = "SELECT id, Price, Seats FROM destination";
 					ResultSet desrs = st.executeQuery(desQuery);
-
+					
+					// loop through all the rows
 					while(desrs.next()) {
+						// set each column value to a variable
 						int id = Integer.parseInt(desrs.getString(1));
 						String price = desrs.getString(2);
 						String seats = desrs.getString(3);
 						int item = City.getSelectedIndex();
 						
+						// check if selected item in comboBox is equal to city ID 
 						if((item+1) == id) {	
 							destFare.setText(price);
 							CitySeat.setText(seats);					
@@ -360,13 +379,15 @@ public class BusReservation {
 					try {
 						if (result == JOptionPane.YES_OPTION) {
 							submitPassInfo.setEnabled(false);
+							
+							// get the value from the textboxes
 							payment = Double.parseDouble(Payment.getText());
 							int passengers = Integer.parseInt(Passengers.getText());
 							int discPass = Integer.parseInt(DiscPassengers.getText());
 							double fare = Double.parseDouble(destFare.getText());
 							int item = City.getSelectedIndex();
-							// TODO: add Database functions as well (DONE)
-							// TODO: add update btn functions (it should only affect the balance and add the value to the amount paid). (DONE)
+							
+							// calculations to get the total number to pay
 							double discountedPass = (fare * 0.2) * discPass;
 							double totFare = fare * passengers;
 							double total =  totFare - discountedPass;												
@@ -380,6 +401,8 @@ public class BusReservation {
 									Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/busreservation","root","");
 									String sql = "INSERT INTO `passengers`(`fname`, `lname`, `contact`, `email`, `tickets`, `payment`, `fareCost`, `discountedTicket`, `city`) VALUES (?,?,?,?,?,?,?,?,?)";
 									PreparedStatement pst = con.prepareStatement(sql);
+									
+									// add all of these values to the database.
 									item += 1;
 									pst.setString(1, fname);
 									pst.setString(2, lname);
@@ -392,7 +415,7 @@ public class BusReservation {
 									pst.setString(9, String.valueOf(item));
 									pst.executeUpdate();
 									
-									// done!
+									// decrease the number of seats after submitting
 									PreparedStatement desPst = con.prepareStatement("UPDATE destination SET Seats = Seats - ? WHERE ID = ?");
 									desPst.setInt(1, passengers);
 									desPst.setInt(2, item);
@@ -789,14 +812,14 @@ public class BusReservation {
 					PreparedStatement ps = con.prepareStatement(desQuery);
 					String selectedCellValue = (String) tblHistory.getValueAt(tblHistory.getSelectedRow(), 0);
 					
-					String newPay = Payment.getText();
-					
+					String newPay = Payment.getText();			
 					if(newPay.isBlank()) {
 						JOptionPane.showMessageDialog(null, "Please enter payment.");
 					}else {
 						if(Double.parseDouble(newPay) > Double.parseDouble(passBalance.getText())) {
 							JOptionPane.showMessageDialog(null, "Payment should not exceed balance.");
 						}else {
+							// add and update the payment of the passenger to the database
 							ps.setDouble(1, Double.parseDouble(Payment.getText()));
 							ps.setString(2, selectedCellValue);
 							btnUpdateDetails.setEnabled(false);
@@ -876,8 +899,7 @@ public class BusReservation {
 		});
 	}
 	
-	
-	
+	// refreshing the table values
 	public void refreshTable() {
 		DefaultTableModel model = (DefaultTableModel)tblHistory.getModel();
 		model.setRowCount(0);
@@ -890,6 +912,7 @@ public class BusReservation {
 			ResultSet rs = st.executeQuery(query);
 			ResultSetMetaData rsmd = rs.getMetaData();
 			
+			// set the column name in the jtable for easy identification
 			int cols = rsmd.getColumnCount();
 			String[] colName = new String[cols];
 			for(int i = 0; i<cols; i++) {
@@ -898,6 +921,7 @@ public class BusReservation {
 			model.setColumnIdentifiers(colName);
 			String id, name, tickets;
 			
+			// add them to the table model
 			while(rs.next()) {
 				id = rs.getString(1);
 				name = rs.getString(2);
@@ -912,6 +936,5 @@ public class BusReservation {
 		}catch(Exception e) {
 			JOptionPane.showMessageDialog(null, e);
 		}
-		
 	}
 }
